@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FolderGit2, 
   Plus, 
@@ -10,16 +10,43 @@ import {
   Github, 
   Sparkles,
   Check,
-  X
+  X,
+  Tag,
+  Globe
 } from 'lucide-react';
 import { api, getFileUrl } from '../../services/api';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 
+const DEFAULT_DOMAINS = [
+  'Data Science',
+  'Machine Learning',
+  'Full-Stack Web',
+  'Deep Learning',
+  'Analytics & BI',
+  'Cloud Computing',
+  'Cybersecurity',
+  'General'
+];
+
+const formatUrl = (url) => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
 export const ProjectsManager = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState('All');
+  
+  // Custom domain addition state
+  const [customDomains, setCustomDomains] = useState([]);
+  const [isAddingCustomDomain, setIsAddingCustomDomain] = useState(false);
+  const [newDomainInput, setNewDomainInput] = useState('');
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,8 +87,34 @@ export const ProjectsManager = () => {
     fetchProjects();
   }, []);
 
+  // Compute all available domains for dropdown
+  const availableDomains = useMemo(() => {
+    const set = new Set(DEFAULT_DOMAINS);
+    customDomains.forEach((d) => {
+      if (d && d.trim()) set.add(d.trim());
+    });
+    projects.forEach((p) => {
+      if (p.category && p.category.trim()) set.add(p.category.trim());
+    });
+    if (formData.category && formData.category.trim()) {
+      set.add(formData.category.trim());
+    }
+    return Array.from(set);
+  }, [projects, customDomains, formData.category]);
+
+  // Compute unique domains in projects for list filter pills
+  const projectDomainsForFilter = useMemo(() => {
+    const set = new Set();
+    projects.forEach((p) => {
+      if (p.category && p.category.trim()) set.add(p.category.trim());
+    });
+    return Array.from(set);
+  }, [projects]);
+
   const openAddModal = () => {
     setEditingProject(null);
+    setIsAddingCustomDomain(false);
+    setNewDomainInput('');
     setFormData({
       title: '',
       description: '',
@@ -69,7 +122,7 @@ export const ProjectsManager = () => {
       tech_stack: '',
       github_url: '',
       live_demo_url: '',
-      category: 'Data Science',
+      category: availableDomains[0] || 'Data Science',
       is_featured: false
     });
     setIsModalOpen(true);
@@ -77,6 +130,8 @@ export const ProjectsManager = () => {
 
   const openEditModal = (project) => {
     setEditingProject(project);
+    setIsAddingCustomDomain(false);
+    setNewDomainInput('');
     setFormData({
       title: project.title,
       description: project.description,
@@ -88,6 +143,21 @@ export const ProjectsManager = () => {
       is_featured: !!project.is_featured
     });
     setIsModalOpen(true);
+  };
+
+  const handleAddCustomDomain = () => {
+    const trimmed = newDomainInput.trim();
+    if (!trimmed) {
+      error("Please enter a domain name.");
+      return;
+    }
+    if (!customDomains.includes(trimmed)) {
+      setCustomDomains((prev) => [...prev, trimmed]);
+    }
+    setFormData((prev) => ({ ...prev, category: trimmed }));
+    setNewDomainInput('');
+    setIsAddingCustomDomain(false);
+    success(`Domain "${trimmed}" added and selected!`);
   };
 
   const handleImageUpload = async (e) => {
@@ -113,16 +183,34 @@ export const ProjectsManager = () => {
       return;
     }
 
+    let categoryToSave = (formData.category || '').trim();
+    if (isAddingCustomDomain && newDomainInput.trim()) {
+      categoryToSave = newDomainInput.trim();
+      if (!customDomains.includes(categoryToSave)) {
+        setCustomDomains((prev) => [...prev, categoryToSave]);
+      }
+    }
+    if (!categoryToSave) categoryToSave = 'General';
+
+    const payload = {
+      ...formData,
+      category: categoryToSave,
+      github_url: formatUrl(formData.github_url),
+      live_demo_url: formatUrl(formData.live_demo_url)
+    };
+
     try {
       setSubmitting(true);
       if (editingProject) {
-        await api.admin.updateProject(editingProject.id, formData);
+        await api.admin.updateProject(editingProject.id, payload);
         success("Project updated successfully!");
       } else {
-        await api.admin.createProject(formData);
+        await api.admin.createProject(payload);
         success("Project added successfully!");
       }
       setIsModalOpen(false);
+      setIsAddingCustomDomain(false);
+      setNewDomainInput('');
       fetchProjects();
     } catch (err) {
       error(err.message || "Operation failed.");
@@ -143,12 +231,19 @@ export const ProjectsManager = () => {
   };
 
   const filteredProjects = projects.filter((p) => {
-    const term = searchTerm.toLowerCase();
-    return (
+    const matchesDomain =
+      selectedDomain === 'All' ||
+      p.category?.toLowerCase() === selectedDomain.toLowerCase();
+
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
       p.title.toLowerCase().includes(term) ||
       p.description.toLowerCase().includes(term) ||
-      (p.category && p.category.toLowerCase().includes(term))
-    );
+      (p.category && p.category.toLowerCase().includes(term)) ||
+      (p.tech_stack && p.tech_stack.some((t) => t.toLowerCase().includes(term)));
+
+    return matchesDomain && matchesSearch;
   });
 
   return (
@@ -174,13 +269,44 @@ export const ProjectsManager = () => {
         </button>
       </div>
 
+      {/* Domain / Category Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setSelectedDomain('All')}
+          className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            selectedDomain === 'All'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
+              : 'glass-panel text-slate-400 hover:text-white hover:bg-white/5 border border-white/5'
+          }`}
+        >
+          All Domains ({projects.length})
+        </button>
+
+        {projectDomainsForFilter.map((domain) => {
+          const count = projects.filter((p) => p.category?.toLowerCase() === domain.toLowerCase()).length;
+          return (
+            <button
+              key={domain}
+              onClick={() => setSelectedDomain(domain)}
+              className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedDomain === domain
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'glass-panel text-slate-400 hover:text-white hover:bg-white/5 border border-white/5'
+              }`}
+            >
+              {domain} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search and count bar */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search projects..."
+            placeholder="Search projects by title, domain, or tech..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs rounded-xl glass-input text-white placeholder-slate-400 focus:outline-none"
@@ -230,8 +356,9 @@ export const ProjectsManager = () => {
                   )}
 
                   <div className="absolute top-2.5 left-2.5">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-navy-950/80 text-cyan-300 border border-white/10">
-                      {project.category}
+                    <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-navy-950/90 text-cyan-300 border border-cyan-500/30 shadow-sm backdrop-blur-md">
+                      <Tag className="w-2.5 h-2.5 text-cyan-400" />
+                      <span>{project.category || 'General'}</span>
                     </span>
                   </div>
 
@@ -359,21 +486,84 @@ export const ProjectsManager = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Category
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-3.5 py-2 text-xs rounded-xl glass-input text-white bg-slate-900"
-              >
-                <option value="Data Science">Data Science</option>
-                <option value="Machine Learning">Machine Learning</option>
-                <option value="Full-Stack Web">Full-Stack Web</option>
-                <option value="Deep Learning">Deep Learning</option>
-                <option value="Analytics & BI">Analytics & BI</option>
-                <option value="General">General</option>
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Project Domain / Category <span className="text-rose-400">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCustomDomain(!isAddingCustomDomain)}
+                  className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{isAddingCustomDomain ? 'Select from list' : 'Add New Domain'}</span>
+                </button>
+              </div>
+
+              {!isAddingCustomDomain ? (
+                <div>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        setIsAddingCustomDomain(true);
+                      } else {
+                        setFormData({ ...formData, category: e.target.value });
+                      }
+                    }}
+                    className="w-full px-3.5 py-2 text-xs rounded-xl glass-input text-white bg-slate-900 border border-white/10 focus:border-cyan-400"
+                  >
+                    {availableDomains.map((dom) => (
+                      <option key={dom} value={dom}>
+                        {dom}
+                      </option>
+                    ))}
+                    <option value="__ADD_NEW__" className="text-cyan-400 font-semibold bg-slate-800">
+                      + Add New Domain to list...
+                    </option>
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="e.g. Artificial Intelligence, IoT..."
+                      value={newDomainInput}
+                      onChange={(e) => setNewDomainInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomDomain();
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl glass-input text-white placeholder-slate-500 border border-cyan-500/50 focus:border-cyan-400"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomDomain}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors shrink-0"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCustomDomain(false);
+                        setNewDomainInput('');
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+                      title="Cancel"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Type a new domain and click <span className="text-cyan-300 font-medium">Add</span> to add it to the list.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -425,7 +615,7 @@ export const ProjectsManager = () => {
                 GitHub Repository URL
               </label>
               <input
-                type="url"
+                type="text"
                 value={formData.github_url}
                 onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
                 placeholder="https://github.com/..."
@@ -438,10 +628,10 @@ export const ProjectsManager = () => {
                 Live Demo / Deployment URL
               </label>
               <input
-                type="url"
+                type="text"
                 value={formData.live_demo_url}
                 onChange={(e) => setFormData({ ...formData, live_demo_url: e.target.value })}
-                placeholder="https://..."
+                placeholder="https://... or yourdomain.com"
                 className="w-full px-3.5 py-2 text-xs rounded-xl glass-input text-white"
               />
             </div>
