@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #0b1319;
+    --bg-card: rgba(18, 32, 43, 0.65);
+    --border-color: rgba(52, 211, 153, 0.16);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: #e2e8f0;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Scrollbar - Deep Slate & Emerald Mint */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1319;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f3749;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
+
+/* Glassmorphism Classes with Deep Slate & Neon Emerald/Mint */
+.glass-panel {
+  background: rgba(14, 26, 36, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(52, 211, 153, 0.16);
+}
+
+.glass-card {
+  background: rgba(18, 32, 43, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(52, 211, 153, 0.14);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.45), 0 0 20px -5px rgba(16, 185, 129, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(24, 42, 57, 0.75);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px -10px rgba(16, 185, 129, 0.28), 0 0 25px -5px rgba(34, 211, 238, 0.18);
+}
+
+.glass-input {
+  background: rgba(11, 20, 28, 0.8);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .glass-input {
+    font-size: 16px !important;
+  }
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
+}
+
+/* Gradient text utilities - Neon Mint & Emerald to Arctic Cyan */
+.gradient-text {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 40%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-alt {
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 50%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Neon Emerald & Cyan Ambient Glow Spheres */
+.bg-glow-purple {
+  position: absolute;
+  width: 550px;
+  height: 550px;
+  max-width: 90vw;
+  max-height: 90vw;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(52, 211, 153, 0.12) 40%, rgba(16, 185, 129, 0) 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-glow-cyan {
+  position: absolute;
+  width: 550px;
+  height: 550px;
+  max-width: 90vw;
+  max-height: 90vw;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.22) 0%, rgba(20, 184, 166, 0.12) 40%, rgba(34, 211, 238, 0) 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle Data Grid Mesh */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(52, 211, 153, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(52, 211, 153, 0.05) 1px, transparent 1px);
+}
+
+/* Mobile & Touch Optimizations */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
