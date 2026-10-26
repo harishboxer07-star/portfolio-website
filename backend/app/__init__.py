@@ -23,9 +23,13 @@ def create_app(config_class=Config):
         "allow_headers": ["Content-Type", "Authorization"]
     }})
 
-    # Ensure upload directories exist
-    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
-    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'resumes'), exist_ok=True)
+    # Ensure upload directories exist safely (handling read-only environments gracefully)
+    try:
+        os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
+        os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'resumes'), exist_ok=True)
+    except Exception as e:
+        app.logger.warning(f"Upload directory initialization notice: {e}")
+
 
     # Register blueprints
     from app.routes.auth import auth_bp
